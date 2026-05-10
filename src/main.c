@@ -119,6 +119,15 @@ int create_server_socket(void) {
   return sockfd;
 }
 
+typedef struct {
+  char *method;
+  char *uri;
+  char *host;
+  char *user_agent;
+} http_req_t;
+
+int parse_http_request(char *msg, http_req_t *req) { return 0; }
+
 int main(void) {
   int server_sockfd;
 
@@ -161,18 +170,22 @@ int main(void) {
 
       close(server_sockfd); // Child does NOT need the listening socket.
 
-      char req[1024];
+      char buffer[1024];
+      http_req_t req = {0};
 
-      int bytes_read = recv(client_sockfd, req, sizeof(req) - 1, 0);
+      int bytes_read = recv(client_sockfd, buffer, sizeof(buffer) - 1, 0);
       if (bytes_read == -1) {
         perror("Error receiving message");
         close(client_sockfd);
         exit(1);
       }
 
-      req[bytes_read] = '\0';
+      buffer[bytes_read] = '\0';
 
-      printf("server: got request: %s\n", req);
+      // It does nothing for now
+      parse_http_request(buffer, &req);
+
+      printf("server: got request: %s\n", buffer);
 
       // for now return allways 200 OK response.
       const char *body =
