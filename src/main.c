@@ -146,12 +146,15 @@ int main(void) {
         accept(server_sockfd, (struct sockaddr *)&client_addr, &addr_size);
 
     if (client_sockfd == -1) {
+      if (errno == EINTR) {
+        continue; // If accept() was interrupted by a signal (child exits,
+                  // kernel sends SIGCHLD, retry
+      }
       perror("Error accepting connection");
       continue;
     }
 
     addr_to_str((struct sockaddr *)&client_addr, ipstr);
-
     printf("server: got connection from %s\n", ipstr);
 
     if (fork() == 0) {
