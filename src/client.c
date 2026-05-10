@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
 
   buf[bytes] = '\0';
 
-  printf("server says: %s\n", buf);
+  printf("server response: %s\n", buf);
 
   close(sockfd);
 

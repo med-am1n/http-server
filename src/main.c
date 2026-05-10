@@ -161,7 +161,20 @@ int main(void) {
 
       close(server_sockfd); // Child does NOT need the listening socket.
 
-      if (send(client_sockfd, "Hello, world!", 13, 0) == -1) {
+      const char *body =
+          "<html><body><h1>Hello from my C server</h1></body></html>";
+
+      char response[512];
+
+      snprintf(response, sizeof(response),
+               "HTTP/1.0 200 OK\r\n"
+               "Content-Type: text/html\r\n"
+               "Content-Length: %zu\r\n"
+               "\r\n"
+               "%s",
+               strlen(body), body);
+
+      if (send(client_sockfd, response, strlen(response), 0) == -1) {
         perror("Error sending message");
       }
 
