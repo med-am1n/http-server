@@ -22,7 +22,6 @@ void sigchld_handler(int s) {
   (void)s;
 
   int saved_errno = errno;
-
   while (waitpid(-1, NULL, WNOHANG) > 0)
     ;
 
@@ -35,10 +34,10 @@ void setup_sigchld_handler(void) {
 
   sigemptyset(&sa.sa_mask);
 
-  sa.sa_flags = SA_RESTART;
+  sa.sa_flags = SA_RESTART; // 0
 
   if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-    perror("sigaction");
+    perror("Error setting up SIGCHLD handler");
     exit(1);
   }
 }
@@ -89,27 +88,27 @@ int create_server_socket(void) {
       socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
 
   if (sockfd == -1) {
-    perror("socket");
+    perror("Error creating socket");
     freeaddrinfo(servinfo);
     return -1;
   }
 
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
-    perror("setsockopt");
+    perror("Error setting socket options");
     close(sockfd);
     freeaddrinfo(servinfo);
     return -1;
   }
 
   if (bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
-    perror("bind");
+    perror("Error binding socket");
     close(sockfd);
     freeaddrinfo(servinfo);
     return -1;
   }
 
   if (listen(sockfd, BACKLOG) == -1) {
-    perror("listen");
+    perror("Error listening on socket");
     close(sockfd);
     freeaddrinfo(servinfo);
     return -1;
@@ -121,17 +120,11 @@ int create_server_socket(void) {
 }
 
 int main(void) {
-  int sockfd;
-  int new_fd;
-
-  struct sockaddr_storage their_addr;
-  socklen_t addr_size;
+  int server_sockfd;
 
   char ipstr[INET6_ADDRSTRLEN];
 
-  sockfd = create_server_socket();
-
-  if (sockfd == -1) {
+  if ((server_sockfd = create_server_socket()) == -1) {
     exit(1);
   }
 
@@ -139,35 +132,42 @@ int main(void) {
 
   printf("server: waiting for connections...\n");
 
+  // accept incoming connections
+  struct sockaddr_storage client_addr = {0};
+  socklen_t addr_size;
+
+  int client_sockfd;
+
   while (1) {
 
-    addr_size = sizeof(their_addr);
+    addr_size = sizeof(client_addr);
 
-    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    client_sockfd =
+        accept(server_sockfd, (struct sockaddr *)&client_addr, &addr_size);
 
-    if (new_fd == -1) {
-      perror("accept");
+    if (client_sockfd == -1) {
+      perror("Error accepting connection");
       continue;
     }
 
-    addr_to_str((struct sockaddr *)&their_addr, ipstr);
+    addr_to_str((struct sockaddr *)&client_addr, ipstr);
 
     printf("server: got connection from %s\n", ipstr);
 
     if (fork() == 0) {
 
-      close(sockfd);
+      close(server_sockfd); // Child does NOT need the listening socket.
 
-      if (send(new_fd, "Hello, world!", 13, 0) == -1) {
-        perror("send");
+      if (send(client_sockfd, "Hello, world!", 13, 0) == -1) {
+        perror("Error sending message");
       }
 
-      close(new_fd);
+      close(client_sockfd);
 
       exit(0);
     }
 
-    close(new_fd);
+    close(client_sockfd);
   }
 
   return 0;
