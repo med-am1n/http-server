@@ -29,6 +29,20 @@ void sigchld_handler(int s) {
   errno = saved_errno;
 }
 
+void setup_sigchld_handler(void) {
+  struct sigaction sa;
+  sa.sa_handler = sigchld_handler;
+
+  sigemptyset(&sa.sa_mask);
+
+  sa.sa_flags = SA_RESTART;
+
+  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+    perror("sigaction");
+    exit(1);
+  }
+}
+
 /*
  * Convert IPv4 or IPv6 socket address into a printable IP string.
  */
@@ -113,8 +127,6 @@ int main(void) {
   struct sockaddr_storage their_addr;
   socklen_t addr_size;
 
-  struct sigaction sa;
-
   char ipstr[INET6_ADDRSTRLEN];
 
   sockfd = create_server_socket();
@@ -123,16 +135,7 @@ int main(void) {
     exit(1);
   }
 
-  sa.sa_handler = sigchld_handler;
-
-  sigemptyset(&sa.sa_mask);
-
-  sa.sa_flags = SA_RESTART;
-
-  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-    perror("sigaction");
-    exit(1);
-  }
+  setup_sigchld_handler();
 
   printf("server: waiting for connections...\n");
 
