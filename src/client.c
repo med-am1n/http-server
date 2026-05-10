@@ -83,6 +83,23 @@ int main(int argc, char *argv[]) {
 
   char buf[512];
 
+  // send a request
+  char req[256];
+
+  snprintf(req, sizeof(req),
+           "GET / HTTP/1.1\r\n"
+           "Host: %s\r\n"
+           "\r\n",
+           ip);
+
+  if (send(sockfd, req, strlen(req), 0) == -1) {
+    perror("send");
+    close(sockfd);
+    exit(1);
+  }
+
+  printf("client: sent request\n");
+
   int bytes = recv(sockfd, buf, sizeof(buf) - 1, 0);
   if (bytes == -1) {
     perror("recv");

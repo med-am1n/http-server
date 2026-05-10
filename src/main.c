@@ -161,6 +161,20 @@ int main(void) {
 
       close(server_sockfd); // Child does NOT need the listening socket.
 
+      char req[1024];
+
+      int bytes_read = recv(client_sockfd, req, sizeof(req) - 1, 0);
+      if (bytes_read == -1) {
+        perror("Error receiving message");
+        close(client_sockfd);
+        exit(1);
+      }
+
+      req[bytes_read] = '\0';
+
+      printf("server: got request: %s\n", req);
+
+      // for now return allways 200 OK response.
       const char *body =
           "<html><body><h1>Hello from my C server</h1></body></html>";
 
