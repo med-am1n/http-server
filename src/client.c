@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 
   printf("client: connected to %s:%s\n", ip, port);
 
-  char buf[100];
+  char buf[512];
 
   int bytes = recv(sockfd, buf, sizeof(buf) - 1, 0);
   if (bytes == -1) {
