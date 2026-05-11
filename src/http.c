@@ -5,7 +5,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-
 int parse_http_request(char *msg, http_req_t *req) {
   char *line;
   char *method;
@@ -61,22 +60,41 @@ int parse_http_request(char *msg, http_req_t *req) {
 
   return 0;
 }
+char *serialize_http_response(http_res_t *res) {
 
-void send_response(int sockfd, int status_code, const char *status_text,
-                   const char *content_type, const char *body) {
-  char response[2048];
+  int buffer_size = res->content_length + 1024;
 
-  int body_length = strlen(body);
+  char *buffer = calloc(buffer_size, sizeof(char));
 
-  int len = snprintf(response, sizeof(response),
-                     "HTTP/1.1 %d %s\r\n"
-                     "Content-Type: %s\r\n"
-                     "Content-Length: %d\r\n"
-                     "\r\n"
-                     "%s",
-                     status_code, status_text, content_type, body_length, body);
+  if (!buffer)
+    return NULL;
 
-  send(sockfd, response, len, 0);
+  snprintf(buffer, buffer_size,
+           "%s %d %s\r\n"
+           "Content-Type: %s\r\n"
+           "Content-Length: %d\r\n"
+           "Connection: close\r\n"
+           "\r\n"
+           "%s",
+
+           res->version, res->status_code, res->reason,
+
+           res->content_type, res->content_length,
+
+           res->body);
+
+  return buffer;
+}
+void send_http_response(int sockfd, http_res_t *res) {
+
+  char *raw = serialize_http_response(res);
+
+  if (!raw)
+    return;
+
+  send(sockfd, raw, strlen(raw), 0);
+
+  free(raw);
 }
 
 void handle_request(int sockfd) {
@@ -97,19 +115,41 @@ void handle_request(int sockfd) {
   }
   if (strcmp(req.method, "GET") != 0) {
 
-    send_response(sockfd, 405, "Method Not Allowed", "text/plain",
-                  "Method Not Allowed");
+    http_res_t res = {.version = "HTTP/1.1",
+                      .status_code = 405,
+                      .reason = "Method Not Allowed",
+                      .content_type = "text/plain",
+                      .body = "Method Not Allowed"};
+
+    res.content_length = strlen(res.body);
+
+    send_http_response(sockfd, &res);
 
     return;
   }
 
   if (strcmp(req.uri, "/") == 0) {
 
-    send_response(sockfd, 200, "OK", "text/html",
-                  "<h1>Hello from my C server</h1>");
+    http_res_t res = {.version = "HTTP/1.1",
+                      .status_code = 200,
+                      .reason = "OK",
+                      .content_type = "text/html",
+                      .body = "<h1>Hello from C server</h1>"};
+
+    res.content_length = strlen(res.body);
+
+    send_http_response(sockfd, &res);
 
     return;
   }
 
-  send_response(sockfd, 404, "Not Found", "text/plain", "404 Not Found");
+  http_res_t res = {.version = "HTTP/1.1",
+                    .status_code = 404,
+                    .reason = "Not Found",
+                    .content_type = "text/plain",
+                    .body = "404 Not Found"};
+
+  res.content_length = strlen(res.body);
+
+  send_http_response(sockfd, &res);
 }
