@@ -182,6 +182,23 @@ int parse_http_request(char *msg, http_req_t *req) {
   return 0;
 }
 
+void send_response(int sockfd, int status_code, const char *status_text,
+                   const char *content_type, const char *body) {
+  char response[2048];
+
+  int body_length = strlen(body);
+
+  int len = snprintf(response, sizeof(response),
+                     "HTTP/1.1 %d %s\r\n"
+                     "Content-Type: %s\r\n"
+                     "Content-Length: %d\r\n"
+                     "\r\n"
+                     "%s",
+                     status_code, status_text, content_type, body_length, body);
+
+  send(sockfd, response, len, 0);
+}
+
 int main(void) {
   int server_sockfd;
 
@@ -249,22 +266,8 @@ int main(void) {
       }
 
       // for now return allways 200 OK response.
-      const char *body =
-          "<html><body><h1>Hello from my C server</h1></body></html>";
-
-      char response[512];
-
-      snprintf(response, sizeof(response),
-               "HTTP/1.0 200 OK\r\n"
-               "Content-Type: text/html\r\n"
-               "Content-Length: %zu\r\n"
-               "\r\n"
-               "%s",
-               strlen(body), body);
-
-      if (send(client_sockfd, response, strlen(response), 0) == -1) {
-        perror("Error sending message");
-      }
+      send_response(client_sockfd, 200, "OK", "text/html",
+                    "<h1>Hello from my C server</h1>");
 
       close(client_sockfd);
 
