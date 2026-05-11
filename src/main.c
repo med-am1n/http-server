@@ -244,7 +244,8 @@ int main(void) {
 
       if (strcmp(req.method, "GET") != 0) {
         printf("server: unsupported method: %s\n", req.method);
-        return -1;
+        close(client_sockfd);
+        exit(1);
       }
 
       // for now return allways 200 OK response.
