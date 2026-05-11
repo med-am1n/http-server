@@ -126,7 +126,61 @@ typedef struct {
   char *user_agent;
 } http_req_t;
 
-int parse_http_request(char *msg, http_req_t *req) { return 0; }
+int parse_http_request(char *msg, http_req_t *req) {
+  char *line;
+  char *method;
+  char *uri;
+  char *version;
+
+  // First line
+  line = strtok(msg, "\r\n");
+
+  if (line == NULL)
+    return -1;
+
+  // Parse request line
+  method = strtok(line, " ");
+  uri = strtok(NULL, " ");
+  version = strtok(NULL, " ");
+
+  if (!method || !uri || !version)
+    return -1;
+
+  req->method = method;
+  req->uri = uri;
+
+  // Parse headers
+  while ((line = strtok(NULL, "\r\n")) != NULL) {
+
+    // Empty line => end of headers
+    if (strlen(line) == 0)
+      break;
+
+    char *colon = strchr(line, ':');
+
+    if (!colon)
+      continue;
+
+    *colon = '\0';
+
+    char *key = line;
+    char *value = colon + 1;
+
+    // Skip leading spaces
+    while (*value == ' ')
+      value++;
+
+    if (strcmp(key, "Host") == 0) {
+      req->host = value;
+    }
+
+    if (strcmp(key, "User-Agent") == 0) {
+      req->user_agent = value;
+    }
+  }
+
+  return 0;
+}
 
 int main(void) {
   int server_sockfd;
@@ -171,7 +225,6 @@ int main(void) {
       close(server_sockfd); // Child does NOT need the listening socket.
 
       char buffer[1024];
-      http_req_t req = {0};
 
       int bytes_read = recv(client_sockfd, buffer, sizeof(buffer) - 1, 0);
       if (bytes_read == -1) {
@@ -180,12 +233,19 @@ int main(void) {
         exit(1);
       }
 
+      http_req_t req = {0};
       buffer[bytes_read] = '\0';
 
-      // It does nothing for now
-      parse_http_request(buffer, &req);
+      if (parse_http_request(buffer, &req) == 1) {
+        return -1;
+      }
 
       printf("server: got request: %s\n", buffer);
+
+      if (strcmp(req.method, "GET") != 0) {
+        printf("server: unsupported method: %s\n", req.method);
+        return -1;
+      }
 
       // for now return allways 200 OK response.
       const char *body =
