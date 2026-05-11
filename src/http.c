@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+
 int parse_http_request(char *msg, http_req_t *req) {
   char *line;
   char *method;

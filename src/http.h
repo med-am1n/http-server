@@ -8,6 +8,15 @@ typedef struct {
   char *user_agent;
 } http_req_t;
 
+typedef struct {
+  char *version;
+  int status_code;
+  char *reason;
+  char *content_type;
+  int content_length;
+  char *body;
+} http_res_t;
+
 int parse_http_request(char *msg, http_req_t *req);
 
 void send_response(int sockfd, int status_code, const char *status_text,
