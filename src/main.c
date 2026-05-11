@@ -199,6 +199,27 @@ void send_response(int sockfd, int status_code, const char *status_text,
   send(sockfd, response, len, 0);
 }
 
+void handle_request(int sockfd, http_req_t *req) {
+
+  if (strcmp(req->method, "GET") != 0) {
+
+    send_response(sockfd, 405, "Method Not Allowed", "text/plain",
+                  "Method Not Allowed");
+
+    return;
+  }
+
+  if (strcmp(req->uri, "/") == 0) {
+
+    send_response(sockfd, 200, "OK", "text/html",
+                  "<h1>Hello from my C server</h1>");
+
+    return;
+  }
+
+  send_response(sockfd, 404, "Not Found", "text/plain", "404 Not Found");
+}
+
 int main(void) {
   int server_sockfd;
 
@@ -250,6 +271,8 @@ int main(void) {
         exit(1);
       }
 
+      printf("server: got request:\n%s\n", buffer);
+
       http_req_t req = {0};
       buffer[bytes_read] = '\0';
 
@@ -257,17 +280,7 @@ int main(void) {
         return -1;
       }
 
-      printf("server: got request: %s\n", buffer);
-
-      if (strcmp(req.method, "GET") != 0) {
-        printf("server: unsupported method: %s\n", req.method);
-        close(client_sockfd);
-        exit(1);
-      }
-
-      // for now return allways 200 OK response.
-      send_response(client_sockfd, 200, "OK", "text/html",
-                    "<h1>Hello from my C server</h1>");
+      handle_request(client_sockfd, &req);
 
       close(client_sockfd);
 
