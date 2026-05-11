@@ -199,9 +199,23 @@ void send_response(int sockfd, int status_code, const char *status_text,
   send(sockfd, response, len, 0);
 }
 
-void handle_request(int sockfd, http_req_t *req) {
+void handle_request(int sockfd) {
+  char buffer[1024];
 
-  if (strcmp(req->method, "GET") != 0) {
+  int bytes_read = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+  if (bytes_read == -1) {
+    perror("Error receiving message");
+    close(sockfd);
+    exit(1);
+  }
+
+  http_req_t req = {0};
+  buffer[bytes_read] = '\0';
+
+  if (parse_http_request(buffer, &req) == 1) {
+    exit(1);
+  }
+  if (strcmp(req.method, "GET") != 0) {
 
     send_response(sockfd, 405, "Method Not Allowed", "text/plain",
                   "Method Not Allowed");
@@ -209,7 +223,7 @@ void handle_request(int sockfd, http_req_t *req) {
     return;
   }
 
-  if (strcmp(req->uri, "/") == 0) {
+  if (strcmp(req.uri, "/") == 0) {
 
     send_response(sockfd, 200, "OK", "text/html",
                   "<h1>Hello from my C server</h1>");
@@ -262,25 +276,7 @@ int main(void) {
 
       close(server_sockfd); // Child does NOT need the listening socket.
 
-      char buffer[1024];
-
-      int bytes_read = recv(client_sockfd, buffer, sizeof(buffer) - 1, 0);
-      if (bytes_read == -1) {
-        perror("Error receiving message");
-        close(client_sockfd);
-        exit(1);
-      }
-
-      printf("server: got request:\n%s\n", buffer);
-
-      http_req_t req = {0};
-      buffer[bytes_read] = '\0';
-
-      if (parse_http_request(buffer, &req) == 1) {
-        return -1;
-      }
-
-      handle_request(client_sockfd, &req);
+      handle_request(client_sockfd);
 
       close(client_sockfd);
 
