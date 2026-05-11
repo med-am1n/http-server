@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 
   printf("client: connected to %s:%s\n", ip, port);
 
-  char buf[512];
+  char buf[4090];
 
   // send a request
   char req[256];
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 
   buf[bytes] = '\0';
 
-  printf("server response: %s\n", buf);
+  printf("server response:\n%s\n", buf);
 
   close(sockfd);
 

@@ -97,6 +97,35 @@ void send_http_response(int sockfd, http_res_t *res) {
   free(raw);
 }
 
+char *load_file(const char *path) {
+
+  FILE *file = fopen(path, "r");
+
+  if (!file)
+    return NULL;
+
+  fseek(file, 0, SEEK_END);
+
+  long size = ftell(file);
+
+  rewind(file);
+
+  char *buffer = calloc(size + 1, sizeof(char));
+
+  if (!buffer) {
+    fclose(file);
+    return NULL;
+  }
+
+  fread(buffer, 1, size, file);
+
+  buffer[size] = '\0';
+
+  fclose(file);
+
+  return buffer;
+}
+
 void handle_request(int sockfd) {
   char buffer[1024];
 
@@ -128,13 +157,30 @@ void handle_request(int sockfd) {
     return;
   }
 
+  // Route handler
   if (strcmp(req.uri, "/") == 0) {
+
+    char *html = load_file("./public/index.html");
+
+    if (!html) {
+      http_res_t res = {.version = "HTTP/1.1",
+                        .status_code = 500,
+                        .reason = "Internal Server Error",
+                        .content_type = "text/plain",
+                        .body = "500 Internal Server Error"};
+
+      res.content_length = strlen(res.body);
+
+      send_http_response(sockfd, &res);
+
+      return;
+    }
 
     http_res_t res = {.version = "HTTP/1.1",
                       .status_code = 200,
                       .reason = "OK",
                       .content_type = "text/html",
-                      .body = "<h1>Hello from C server</h1>"};
+                      .body = html};
 
     res.content_length = strlen(res.body);
 
