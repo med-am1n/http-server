@@ -221,18 +221,7 @@ void handle_request(int sockfd)
   if (strcmp(req.method, "GET") != 0)
   {
 
-    http_res_t res = {.version = "HTTP/1.1",
-                      .status_code = 405,
-                      .reason = "Method Not Allowed",
-                      .body = "Method Not Allowed"};
-
-    // header
-    char len_buf[32];
-    sprintf(len_buf, "%zu", strlen(res.body));
-    add_header(&res, "Content-Length", len_buf);
-    add_header(&res, "Content-Type", "text/html");
-    add_header(&res, "Connection", "close");
-
+    http_res_t res = build_response("500", "Internal Server Error", "Internal Server Error", "text/html");
     send_http_response(sockfd, &res);
 
     return;
