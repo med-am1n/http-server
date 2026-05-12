@@ -9,11 +9,18 @@ typedef struct {
 } http_req_t;
 
 typedef struct {
+    char *key;
+    char *value;
+} http_header_t;
+
+typedef struct {
   char *version;
   int status_code;
   char *reason;
-  char *content_type;
-  int content_length;
+
+  http_header_t headers[32];
+  int header_count;
+  
   char *body;
 } http_res_t;
 

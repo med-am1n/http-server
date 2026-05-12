@@ -5,7 +5,21 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int parse_http_request(char *msg, http_req_t *req) {
+void add_header(
+    http_res_t *res,
+    char *key,
+    char *value)
+{
+  int i = res->header_count;
+
+  res->headers[i].key = key;
+  res->headers[i].value = value;
+
+  res->header_count++;
+}
+
+int parse_http_request(char *msg, http_req_t *req)
+{
   char *line;
   char *method;
   char *uri;
@@ -29,7 +43,8 @@ int parse_http_request(char *msg, http_req_t *req) {
   req->uri = uri;
 
   // Parse headers
-  while ((line = strtok(NULL, "\r\n")) != NULL) {
+  while ((line = strtok(NULL, "\r\n")) != NULL)
+  {
 
     // Empty line => end of headers
     if (strlen(line) == 0)
@@ -49,43 +64,71 @@ int parse_http_request(char *msg, http_req_t *req) {
     while (*value == ' ')
       value++;
 
-    if (strcmp(key, "Host") == 0) {
+    if (strcmp(key, "Host") == 0)
+    {
       req->host = value;
     }
 
-    if (strcmp(key, "User-Agent") == 0) {
+    if (strcmp(key, "User-Agent") == 0)
+    {
       req->user_agent = value;
     }
   }
 
   return 0;
 }
-char *serialize_http_response(http_res_t *res) {
 
-  int buffer_size = res->content_length + 1024;
+char *serialize_http_response(http_res_t *res)
+{
+
+  int buffer_size = strlen(res->body) + 4096;
 
   char *buffer = calloc(buffer_size, sizeof(char));
 
   if (!buffer)
     return NULL;
 
-  snprintf(buffer, buffer_size,
-           "%s %d %s\r\n"
-           "Content-Type: %s\r\n"
-           "Content-Length: %d\r\n"
-           "Connection: close\r\n"
-           "\r\n"
-           "%s",
+  int offset = 0;
 
-           res->version, res->status_code, res->reason,
+  // Status line
+  offset += snprintf(
+      buffer + offset,
+      buffer_size - offset,
+      "%s %d %s\r\n",
+      res->version,
+      res->status_code,
+      res->reason);
 
-           res->content_type, res->content_length,
+  // Headers
+  for (int i = 0; i < res->header_count; i++)
+  {
 
-           res->body);
+    offset += snprintf(
+        buffer + offset,
+        buffer_size - offset,
+        "%s: %s\r\n",
+        res->headers[i].key,
+        res->headers[i].value);
+  }
+
+  // Empty line between headers/body
+  offset += snprintf(
+      buffer + offset,
+      buffer_size - offset,
+      "\r\n");
+
+  // Body
+  offset += snprintf(
+      buffer + offset,
+      buffer_size - offset,
+      "%s",
+      res->body);
 
   return buffer;
 }
-void send_http_response(int sockfd, http_res_t *res) {
+
+void send_http_response(int sockfd, http_res_t *res)
+{
 
   char *raw = serialize_http_response(res);
 
@@ -97,7 +140,8 @@ void send_http_response(int sockfd, http_res_t *res) {
   free(raw);
 }
 
-char *load_file(const char *path) {
+char *load_file(const char *path)
+{
 
   FILE *file = fopen(path, "r");
 
@@ -112,7 +156,8 @@ char *load_file(const char *path) {
 
   char *buffer = calloc(size + 1, sizeof(char));
 
-  if (!buffer) {
+  if (!buffer)
+  {
     fclose(file);
     return NULL;
   }
@@ -126,11 +171,13 @@ char *load_file(const char *path) {
   return buffer;
 }
 
-void handle_request(int sockfd) {
+void handle_request(int sockfd)
+{
   char buffer[1024];
 
   int bytes_read = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-  if (bytes_read == -1) {
+  if (bytes_read == -1)
+  {
     perror("Error receiving message");
     close(sockfd);
     exit(1);
@@ -139,18 +186,24 @@ void handle_request(int sockfd) {
   http_req_t req = {0};
   buffer[bytes_read] = '\0';
 
-  if (parse_http_request(buffer, &req) == 1) {
+  if (parse_http_request(buffer, &req) == 1)
+  {
     exit(1);
   }
-  if (strcmp(req.method, "GET") != 0) {
+  if (strcmp(req.method, "GET") != 0)
+  {
 
     http_res_t res = {.version = "HTTP/1.1",
                       .status_code = 405,
                       .reason = "Method Not Allowed",
-                      .content_type = "text/plain",
                       .body = "Method Not Allowed"};
 
-    res.content_length = strlen(res.body);
+    // header
+    char len_buf[32];
+    sprintf(len_buf, "%zu", strlen(res.body));
+    add_header(&res, "Content-Length", len_buf);
+    add_header(&res, "Content-Type", "text/html");
+    add_header(&res, "Connection", "close");
 
     send_http_response(sockfd, &res);
 
@@ -158,18 +211,24 @@ void handle_request(int sockfd) {
   }
 
   // Route handler
-  if (strcmp(req.uri, "/") == 0) {
+  if (strcmp(req.uri, "/") == 0)
+  {
 
     char *html = load_file("./public/index.html");
 
-    if (!html) {
+    if (!html)
+    {
       http_res_t res = {.version = "HTTP/1.1",
                         .status_code = 500,
                         .reason = "Internal Server Error",
-                        .content_type = "text/plain",
                         .body = "500 Internal Server Error"};
 
-      res.content_length = strlen(res.body);
+    // header
+    char len_buf[32];
+    sprintf(len_buf, "%zu", strlen(res.body));
+    add_header(&res, "Content-Length", len_buf);
+    add_header(&res, "Content-Type", "text/html");
+    add_header(&res, "Connection", "close");
 
       send_http_response(sockfd, &res);
 
@@ -179,10 +238,14 @@ void handle_request(int sockfd) {
     http_res_t res = {.version = "HTTP/1.1",
                       .status_code = 200,
                       .reason = "OK",
-                      .content_type = "text/html",
                       .body = html};
 
-    res.content_length = strlen(res.body);
+    // header
+    char len_buf[32];
+    sprintf(len_buf, "%zu", strlen(res.body));
+    add_header(&res, "Content-Length", len_buf);
+    add_header(&res, "Content-Type", "text/html");
+    add_header(&res, "Connection", "close");
 
     send_http_response(sockfd, &res);
 
@@ -192,10 +255,13 @@ void handle_request(int sockfd) {
   http_res_t res = {.version = "HTTP/1.1",
                     .status_code = 404,
                     .reason = "Not Found",
-                    .content_type = "text/plain",
                     .body = "404 Not Found"};
-
-  res.content_length = strlen(res.body);
+  // header
+  char len_buf[32];
+  sprintf(len_buf, "%zu", strlen(res.body));
+add_header(&res, "Content-Length", len_buf);
+  add_header(&res, "Content-Type", "text/html");
+  add_header(&res, "Connection", "close");
 
   send_http_response(sockfd, &res);
 }
