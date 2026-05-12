@@ -18,6 +18,7 @@ void add_header(
   res->header_count++;
 }
 
+
 int parse_http_request(char *msg, http_req_t *req)
 {
   char *line;
@@ -171,6 +172,29 @@ char *load_file(const char *path)
   return buffer;
 }
 
+http_res_t build_response(
+    const char *status_code,
+    const char *reason,
+    const char *body,
+    const char *content_type
+)
+{
+    http_res_t res = {0};
+
+    res.version = "HTTP/1.1";
+    res.status_code = atoi(status_code);
+    res.reason = (char *)reason;
+    res.body = (char *)body;
+
+    char len_buf[32];
+    sprintf(len_buf, "%zu", strlen(body));
+
+    add_header(&res, "Content-Length", len_buf);
+    add_header(&res, "Content-Type", (char *)content_type);
+    add_header(&res, "Connection", "close");
+
+    return res;
+}
 void handle_request(int sockfd)
 {
   char buffer[1024];
@@ -218,50 +242,19 @@ void handle_request(int sockfd)
 
     if (!html)
     {
-      http_res_t res = {.version = "HTTP/1.1",
-                        .status_code = 500,
-                        .reason = "Internal Server Error",
-                        .body = "500 Internal Server Error"};
-
-    // header
-    char len_buf[32];
-    sprintf(len_buf, "%zu", strlen(res.body));
-    add_header(&res, "Content-Length", len_buf);
-    add_header(&res, "Content-Type", "text/html");
-    add_header(&res, "Connection", "close");
-
+      http_res_t res = build_response("500", "Internal Server Error", "Internal Server Error", "text/html");
       send_http_response(sockfd, &res);
-
       return;
     }
 
-    http_res_t res = {.version = "HTTP/1.1",
-                      .status_code = 200,
-                      .reason = "OK",
-                      .body = html};
-
-    // header
-    char len_buf[32];
-    sprintf(len_buf, "%zu", strlen(res.body));
-    add_header(&res, "Content-Length", len_buf);
-    add_header(&res, "Content-Type", "text/html");
-    add_header(&res, "Connection", "close");
+    http_res_t res = build_response("200", "OK", html, "text/html");
 
     send_http_response(sockfd, &res);
 
     return;
   }
 
-  http_res_t res = {.version = "HTTP/1.1",
-                    .status_code = 404,
-                    .reason = "Not Found",
-                    .body = "404 Not Found"};
-  // header
-  char len_buf[32];
-  sprintf(len_buf, "%zu", strlen(res.body));
-add_header(&res, "Content-Length", len_buf);
-  add_header(&res, "Content-Type", "text/html");
-  add_header(&res, "Connection", "close");
+  http_res_t res = build_response("404", "Not Found", "404 Not Found", "text/html");
 
   send_http_response(sockfd, &res);
 }
