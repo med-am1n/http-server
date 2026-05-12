@@ -185,11 +185,15 @@ http_res_t build_response(
     res.status_code = atoi(status_code);
     res.reason = (char *)reason;
     res.body = (char *)body;
+    
+    // char len_buf[32]; --- IGNORE --- header points to invalid memory after the function returns, so we need to allocate it on the heap
+    char *len_str = calloc(32, sizeof(char));
+    
+    if (!len_str) return res;
 
-    char len_buf[32];
-    sprintf(len_buf, "%zu", strlen(body));
+    sprintf(len_str, "%zu", strlen(body));
 
-    add_header(&res, "Content-Length", len_buf);
+    add_header(&res, "Content-Length", len_str);
     add_header(&res, "Content-Type", (char *)content_type);
     add_header(&res, "Connection", "close");
 
