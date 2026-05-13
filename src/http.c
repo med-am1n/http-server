@@ -183,8 +183,8 @@ http_res_t build_response(
 
     res.version = "HTTP/1.1";
     res.status_code = atoi(status_code);
-    res.reason = (char *)reason;
-    res.body = (char *)body;
+    res.reason = strdup(reason);  // Allocate on heap for proper cleanup
+    res.body = strdup(body);      // Allocate on heap for proper cleanup
     
     // char len_buf[32]; --- IGNORE --- header points to invalid memory after the function returns, so we need to allocate it on the heap
     char *len_str = calloc(32, sizeof(char));
@@ -194,11 +194,24 @@ http_res_t build_response(
     sprintf(len_str, "%zu", strlen(body));
 
     add_header(&res, "Content-Length", len_str);
-    add_header(&res, "Content-Type", (char *)content_type);
-    add_header(&res, "Connection", "close");
+    add_header(&res, "Content-Type", strdup(content_type));  // Allocate for proper cleanup
+    add_header(&res, "Connection", strdup("close"));         // Allocate for proper cleanup
 
     return res;
 }
+
+void free_http_res(http_res_t *res)
+{
+    // Free body and reason
+    free(res->body);
+    free(res->reason);
+    
+    // Free all header values
+    for (int i = 0; i < res->header_count; i++) {
+        free(res->headers[i].value);
+    }
+}
+
 void handle_request(int sockfd)
 {
   char buffer[1024];
@@ -223,7 +236,7 @@ void handle_request(int sockfd)
 
     http_res_t res = build_response("500", "Internal Server Error", "Internal Server Error", "text/html");
     send_http_response(sockfd, &res);
-
+    free_http_res(&res);
     return;
   }
 
@@ -237,12 +250,14 @@ void handle_request(int sockfd)
     {
       http_res_t res = build_response("500", "Internal Server Error", "Internal Server Error", "text/html");
       send_http_response(sockfd, &res);
+      free_http_res(&res);
       return;
     }
 
     http_res_t res = build_response("200", "OK", html, "text/html");
 
     send_http_response(sockfd, &res);
+    free_http_res(&res);
 
     return;
   }
@@ -250,4 +265,5 @@ void handle_request(int sockfd)
   http_res_t res = build_response("404", "Not Found", "404 Not Found", "text/html");
 
   send_http_response(sockfd, &res);
+  free_http_res(&res);
 }
