@@ -1,14 +1,14 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -I./src
+CFLAGS = -Wall -Wextra -I./src -I./include
 SRC_DIR = src
+BIN_DIR = bin
+BUILD_DIR = build
 
-all: main client
+all: $(BIN_DIR)/server
 
-main: $(SRC_DIR)/main.c $(SRC_DIR)/http.c
-	$(CC) $(CFLAGS) $^ -o $@
-
-client: $(SRC_DIR)/client.c
+$(BIN_DIR)/server: $(SRC_DIR)/http/http.c $(SRC_DIR)/main.c
+	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
-	rm -f main client
+	rm -rf $(BIN_DIR) $(BUILD_DIR)
